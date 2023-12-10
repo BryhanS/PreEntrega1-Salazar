@@ -1,27 +1,5 @@
-# Proyecto SQL creacion base de datos Celulares Apple
 
-Este proyecto se realizará a razón de tener una base de datos capaz de guardar todos los datos de creación de nuevos productos en el catálogo de iphone.
-
-### Objetivos:
-
-- SKU de Celulares
-- Consistencia en los datos
-- Consultas rápidas y hacer conexiones con los diferentes excel de las áreas administrativas.
-
-### Diagrama de Entidad Relacion:
-
-![](./img/entidad-relacion.png)
-
-### Tablas:
-
-![](./img/tablas-1.png)
-![](./img/tablas-2.png)
-
-### Script SQL
-
-Creacion de base de datos y tabla de celulares.
-
-```
+/*creacion de tablas y triggers*/
 CREATE SCHEMA IF NOT EXISTS IphoneData;
 
 USE IphoneData;
@@ -91,16 +69,38 @@ CREATE TABLE IF NOT exists Ventas(
 );
 
 
-```
+create table control_series (
+	id int primary key auto_increment,
+    serie varchar(4),
+    numeracion varchar(10),
+    id_cliente varchar(8),
+    estado varchar(10) not null default 'emitido',
+    dia datetime
+);
 
-### Script insert SQL
 
-Creacion de insert sql
+create trigger before_control_series
+before insert on Ventas
+for each row
+insert control_series (id, serie, numeracion, id_cliente, dia) values(new.id_venta, new.serie, new.numeracion, new.id_cliente, now());
 
-```
+DELIMITER //
+create trigger afert_delete_series
+after delete on ventas
+for each row
+begin
+	update control_series
+    set estado = 'anulado', dia = now()
+    where id = OLD.id_venta;
+end;
+//
+DELIMITER ;
+
+
+/*insert SQL datos*/
 
 insert into Direccion(id_direccion,direccion,pais,ciudad)
-VALUES
+VALUES 
 (1,"La direccion en Pueblo Libre","Peru","Pueblo Libre"),
 (2,"La direccion en Miraflores","Peru","Miraflores"),
 (3,"La direccion en Barranco","Peru","Barranco"),
@@ -233,24 +233,10 @@ values
 (24,"B001","024",1,24,1,24),
 (25,"B001","025",2,25,1,25);
 
-```
 
-### Create View SQL
-
-Creacion de Vistas en SQL:
-
-- detalle_celulares_imei: Vista de detalle de celulares, la componen la tabla celulares y sku. Tiene por objetivo mostrar el detalle de los celulares creados.
-
-- venta_total_sucursal: ventas total por sucursales usa la tabla Ventas y la vista de detalle_celulares_imei para tener los montos de cada venta y asi consolidarla por cada sucursal.
-
-- cantidad_venta_distrito: usa las siguientes tablas Ventas, Clientes y Direccion para asi poder extraer las ventas de cada distrito enviado por delivery.
-
-- detalle_ventas: usa las siguientes tablas ventas, tiendas, cliente y direcciones, tambien la vista detalle_celulares_imei, esta nos informa de la informacion que contiene la venta.
-
-```
-
+/*creacion de views*/
 create view  detalle_celulares_imei as
-select
+select 
 	c.id_imei,
     c.imei,
     s.codigo_sku,
@@ -261,10 +247,10 @@ select
 from celulares c
 join sku s
 	on c.id_sku = s.id_sku;
-
+    
 
 create view venta_total_sucursal as
-select
+select 
 	t.nombre_sucursal,
     sum(v.cantidad *d.precio) as total
 from Ventas v
@@ -276,7 +262,7 @@ group by t.nombre_sucursal;
 
 
 create view cantidad_venta_distrito as
-select
+select 
 	d.ciudad,
     sum(v.cantidad) as cantidadTotal
 from Ventas v
@@ -289,7 +275,7 @@ order by cantidadTotal DESC;
 
 
 create view detalle_ventas as
-select
+select 
 	v.serie,
     v.numeracion,
     t.nombre_sucursal,
@@ -316,23 +302,16 @@ join detalle_celulares_imei dc
 
 
 create view ventas_por_ciudad as
-select
+select 
 	ciudad,
     sum(monto) as total
  from detalle_ventas
  group by ciudad
  order by total desc;
-```
 
-### Function Storage
 
-Creacion de function storage
 
-- PagoIgv: funtion storage nos permite ver el igv que se tiene que pagar.
-
-- Total: es la suma del monto mas impuestos
-
-```
+ /*function storage */
 delimiter %
 create function PagoIgv(monto int) returns float
 deterministic
@@ -347,33 +326,23 @@ begin
 end%
 
 SELECT *, PagoIgv(monto) as igv, Total(monto) as Total  FROM IphoneData.detalle_ventas;
-```
 
-### Function Storage procedure
+/*funtion storage procedure*/
 
-Creacion de storage procedure
-
-- sp_get_documentos: este procedure, hace que los documentos sean ordenado de numeracion menor a mayor.
-
-- sp_get_ciudad_top: se creo para saber las ventas totales de cada ciudad enviada, como tambien filtrar por todas las ciduades, hacer un top 20. top 10 o el top que el analista desea aplicar.
-
-```
 delimiter //
 create procedure sp_get_documentos()
 begin
 	/* store procede para ver detalle de documentos */
-
 	select serie,numeracion from IphoneData.detalle_ventas
     order by numeracion asc;
 
 end//
 
-call sp_get_documentos
 
 create procedure sp_get_ciudad_top(in top int)
 begin
 	/* store procede para ver consolidado de todas las ventas por ciudad de top, ingresar cero para tener todos los distritos */
-
+    
     if top = 0 then
 		select ciudad,sum(monto) from IphoneData.detalle_ventas
 		group by ciudad
@@ -384,63 +353,5 @@ begin
 		order by sum(monto) desc
 		limit top;
     end if;
-
+    
 end//
-
-call sp_get_ciudad_top(5)
-
-```
-
-### Triggers
-
-Creacion de triggers
-
-- before_control_series: se creo la tabla control_series, para que este trigger pueda enviar informacion de las series emitidas al momento de la venta.
-
-- afert_delete_series: es un trigger que ayuda a llevar un control de las series eliminadas, por anulacion de documentos.
-
-```
-
-create table control_series (
-	id int primary key auto_increment,
-    serie varchar(4),
-    numeracion varchar(10),
-    id_cliente varchar(8),
-    estado varchar(10) not null default 'emitido',
-    dia datetime
-);
-
-
-create trigger before_control_series
-before insert on Ventas
-for each row
-insert control_series (id, serie, numeracion, id_cliente, dia) values(new.id_venta, new.serie, new.numeracion, new.id_cliente, now());
-
-DELIMITER //
-create trigger afert_delete_series
-after delete on ventas
-for each row
-begin
-	update control_series
-    set estado = 'anulado', dia = now()
-    where id = OLD.id_venta;
-end;
-//
-DELIMITER ;
-
-
--- test
-
-insert into Ventas(id_venta,serie,numeracion,id_tienda,id_cliente,cantidad,id_imei)
-values
-(29,"B001","029",2,25,3,20);
-
-
-delete from Ventas
-where id_venta = 29;
-
-
-
--- drop trigger before_control_series
-
-```
