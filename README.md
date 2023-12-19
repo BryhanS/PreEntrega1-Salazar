@@ -444,3 +444,11 @@ where id_venta = 29;
 -- drop trigger before_control_series
 
 ```
+
+### Sentencias
+
+Se crearan 2 usuarios
+
+```
+
+```
