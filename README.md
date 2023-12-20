@@ -474,3 +474,9 @@ revoke delete on IphoneData.* from 'facturador'@'localhost';
 show grants for 'facturador'@'localhost';
 
 ```
+
+### Sentencias de sublenguaje TCL
+
+```
+
+```
