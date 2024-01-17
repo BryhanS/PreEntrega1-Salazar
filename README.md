@@ -1,12 +1,23 @@
-# Proyecto SQL creacion base de datos Celulares Apple
+# Proyecto SQL: Creación de Base de Datos para Celulares Apple y Registro de Ventas Apple
 
-Este proyecto se realizará a razón de tener una base de datos capaz de guardar todos los datos de creación de nuevos productos en el catálogo de iphone.
+Este proyecto se llevará a cabo con el propósito de tener una base de datos capaz de almacenar todos los datos relacionados con la creación de nuevos productos en el catálogo de iPhones.
 
 ### Objetivos:
 
-- SKU de Celulares
-- Consistencia en los datos
-- Consultas rápidas y hacer conexiones con los diferentes excel de las áreas administrativas.
+- Consolidar los SKU de celulares en una base de datos accesible para toda la empresa.
+- Mantener consistencia en los datos.
+- Proporcionar información estandarizada para todas las áreas de la empresa.
+- Garantizar la persistencia de los datos en SQL para su almacenamiento, dejando el Excel como una herramienta complementaria.
+
+### Situación Problemática
+
+1 . En Celulares Apple S.A.C., solo el área de Logística tiene acceso a los SKU de los productos; todas las demás áreas deben consultar a Logística para crear códigos nuevos de productos. El proyecto SQL busca democratizar la información en todas las áreas que la requieran.
+
+2 . Aunque la empresa cuenta con sistemas de facturación donde se almacena la información de ventas, esta data solo se puede consultar aproximadamente cada 6 meses. Esto ha llevado al área contable a almacenar sus archivos mensuales mediante tablas de cálculo en Excel mensualmente. La consolidación de los datos se vuelve tediosa, ya que generamos mucha información y se vuelve lenta con Excel. Al guardar toda la información en SQL, se tendrá la información mensual consolidada, y solo se necesitará realizar consultas de los meses o documentos específicos que se requieran.
+
+### Modelo de negocio
+
+La empresa Celulares Apple S.A.C. se encarga de la comercialización de equipos móviles para todo el Perú, con sede en Lima y apoyo de couriers para llegar a todo el país. Debido al creciente consumo de celulares de la marca Apple, surge la necesidad de implementar nuevas tecnologías para la administración de la empresa.
 
 ### Diagrama de Entidad Relacion:
 
@@ -324,9 +335,9 @@ select
  order by total desc;
 ```
 
-### Function Storage
+### Funciones
 
-Creacion de function storage
+Creacion de funciones
 
 - PagoIgv: funtion storage nos permite ver el igv que se tiene que pagar.
 
@@ -349,7 +360,7 @@ end%
 SELECT *, PagoIgv(monto) as igv, Total(monto) as Total  FROM IphoneData.detalle_ventas;
 ```
 
-### Function Storage procedure
+### Storage procedure
 
 Creacion de storage procedure
 
@@ -445,7 +456,7 @@ where id_venta = 29;
 
 ```
 
-### Sentencias
+### Creacion de Usuarios
 
 - usuario logistica, se encarga de leer los datos que se generan al crear facturas para asi pueda hacer su analisis
 
@@ -475,144 +486,137 @@ show grants for 'facturador'@'localhost';
 
 ```
 
-### Sentencias de sublenguaje TCL
+### Informes Generados en Base de Datps
 
-Primera tabla de ejercicio
+Creacion de Vistas en SQL, para tener los reportes necesarios:
 
-```
-/*desactivar autocommit */
-set autocommit = 0;
+- detalle_celulares_imei: Vista de detalle de celulares, la componen la tabla celulares y sku. Tiene por objetivo mostrar el detalle de los celulares creados.
 
-select * from Ventas;
+- venta_total_sucursal: ventas total por sucursales usa la tabla Ventas y la vista de detalle_celulares_imei para tener los montos de cada venta y asi consolidarla por cada sucursal.
 
-delete from Ventas where id_venta=25;
-rollback;
-commit;
+- cantidad_venta_distrito: usa las siguientes tablas Ventas, Clientes y Direccion para asi poder extraer las ventas de cada distrito enviado por delivery.
 
-/*insertar linea faltante*/
-insert into Ventas(id_venta,serie,numeracion,id_tienda,id_cliente,cantidad,id_imei)
-values
-(null,"B001","025",2,25,1,25);
+- detalle_ventas: usa las siguientes tablas ventas, tiendas, cliente y direcciones, tambien la vista detalle_celulares_imei, esta nos informa de la informacion que contiene la venta.
 
 ```
 
-Segunda tabla de ejercicio
+create view  detalle_celulares_imei as
+select
+	c.id_imei,
+    c.imei,
+    s.codigo_sku,
+    s.modelo,
+    s.capacidad,
+    s.color,
+    s.precio
+from celulares c
+join sku s
+	on c.id_sku = s.id_sku;
+
+
+create view venta_total_sucursal as
+select
+	t.nombre_sucursal,
+    sum(v.cantidad *d.precio) as total
+from Ventas v
+join detalle_celulares_imei d
+	on v.id_imei = d.id_imei
+join Tienda t
+	on v.id_tienda = t.id_tienda
+group by t.nombre_sucursal;
+
+
+create view cantidad_venta_distrito as
+select
+	d.ciudad,
+    sum(v.cantidad) as cantidadTotal
+from Ventas v
+join Clientes c
+	on v.id_cliente = c.id_cliente
+join Direccion d
+	on c.id_direccion = d.id_direccion
+group by d.ciudad
+order by cantidadTotal DESC;
+
+
+create view detalle_ventas as
+select
+	v.serie,
+    v.numeracion,
+    t.nombre_sucursal,
+    c.dni,
+    c.nombres,
+    c.apellidos,
+    d.direccion,
+    d.ciudad,
+	dc.imei,
+    dc.codigo_sku,
+    dc.modelo,
+    v.cantidad,
+    dc.precio,
+    (v.cantidad * dc.precio) as monto
+from Ventas v
+join Tienda t
+	on v.id_tienda = t.id_tienda
+join Clientes c
+	on v.id_cliente = c.id_cliente
+join Direccion d
+	on c.id_direccion = d.id_direccion
+join detalle_celulares_imei dc
+	on v.id_imei = dc.id_imei;
+
+
+create view ventas_por_ciudad as
+select
+	ciudad,
+    sum(monto) as total
+ from detalle_ventas
+ group by ciudad
+ order by total desc;
+```
+
+### Herramientas y Tecnologias
+
+- Excel
+- ERDPLUS
+- MySQL
+- WorkBench
+- Git y Github
+- CoderSpaces
+- Docker, Docker Compose y Docker UI (Generacion de Mysql)
+
+```
+# Use root/example as user/password credentials
+version: "3.1"
+
+services:
+  db:
+    platform: linux/x86_64
+    image: mysql:8.0.20
+    # NOTE: use of "mysql_native_password" is not recommended: https://dev.mysql.com/doc/refman/8.0/en/upgrading-from-previous-series.html#upgrade-caching-sha2-password
+    # (this is just an example, not intended to be a production configuration)
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_SKIP_NAME_RESOLVE: 0
+    ports:
+      - 3306:3306
+    volumes:
+      - ./db:/var/lib/mysql
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
 
 ```
 
-select * from sku;
+### Futuras lineas
 
+En el futuro:
 
-start transaction;
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone Xr 256 Negro","iPhone Xr",256,"Negro","XR256NEG",999);
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone SE 2020 64 Rojo","iPhone SE 2020",64,"Rojo","SE264ROJ",499);
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone Xs 256 Plata","iPhone Xs",256,"Plata","XS256PTA",1300);
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone 11 128 Azul","iPhone 11",128,"Azul","11128AZUL",1800);
-savepoint lote_1;
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone Xr 256 Amarillo","iPhone Xr",256,"Amarillo","XR256AMA",999);
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone SE 2020 128 Rojo","iPhone SE 2020",128,"Rojo","SE2128ROJ",499);
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone Xs 128 Plata","iPhone Xs",128,"Plata","XS128PTA",1300);
-insert into sku(id_sku, nombre_sku,modelo,capacidad,color, codigo_sku,precio) values (null,"iPhone 11 128 Negro","iPhone 11",128,"Negro","11128NEG",1800);
-savepoint lote_2;
+- Creacion tabla traslado de equipos entre los locales y la insercion de los traslados.
 
-release savepoint lote_1;
-```
-
-### Backup
-
-Ejercicio backup de datos
-
-```
--- MySQL dump 10.13  Distrib 8.0.35, for Linux (x86_64)
---
--- Host: localhost    Database: IphoneData
--- ------------------------------------------------------
--- Server version	8.0.35
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-
---
--- Dumping data for table `Celulares`
---
-
-LOCK TABLES `Celulares` WRITE;
-/*!40000 ALTER TABLE `Celulares` DISABLE KEYS */;
-INSERT INTO `Celulares` VALUES (1,'899785403717701',2),(2,'965979360196480',5),(3,'905133997837684',3),(4,'562607816352275',1),(5,'303047736791084',2),(6,'820363848987001',2),(7,'338268132978297',2),(8,'175672153979542',2),(9,'502908668981736',2),(10,'271899756817026',4),(11,'124979657739823',2),(12,'356560032035739',3),(13,'291978043337667',3),(14,'587433572073705',3),(15,'558115464012495',5),(16,'286317154258125',4),(17,'398261857399933',5),(18,'172722826645041',2),(19,'588713986918517',4),(20,'920165107918006',1),(21,'194147488182941',5),(22,'376471582028381',5),(23,'636752107270364',1),(24,'436208529041474',1),(25,'160869555071337',1);
-/*!40000 ALTER TABLE `Celulares` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Dumping data for table `Clientes`
---
-
-LOCK TABLES `Clientes` WRITE;
-/*!40000 ALTER TABLE `Clientes` DISABLE KEYS */;
-/*!40000 ALTER TABLE `Clientes` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Dumping data for table `Direccion`
---
-
-LOCK TABLES `Direccion` WRITE;
-/*!40000 ALTER TABLE `Direccion` DISABLE KEYS */;
-/*!40000 ALTER TABLE `Direccion` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Dumping data for table `Tienda`
---
-
-LOCK TABLES `Tienda` WRITE;
-/*!40000 ALTER TABLE `Tienda` DISABLE KEYS */;
-/*!40000 ALTER TABLE `Tienda` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Dumping data for table `Ventas`
---
-
-LOCK TABLES `Ventas` WRITE;
-/*!40000 ALTER TABLE `Ventas` DISABLE KEYS */;
-/*!40000 ALTER TABLE `Ventas` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Dumping data for table `control_series`
---
-
-LOCK TABLES `control_series` WRITE;
-/*!40000 ALTER TABLE `control_series` DISABLE KEYS */;
-/*!40000 ALTER TABLE `control_series` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Dumping data for table `sku`
---
-
-LOCK TABLES `sku` WRITE;
-/*!40000 ALTER TABLE `sku` DISABLE KEYS */;
-INSERT INTO `sku` VALUES (1,'iPhone Xr 128 Rojo','iPhone Xr','128','Rojo','XR128ROJ',999),(2,'iPhone SE 2020 64 Negro','iPhone SE 2020','64','Negro','SE264NEG',499),(3,'iPhone Xs 256 Dorado','iPhone Xs','256','Dorado','XS256DOR',1300),(4,'iPhone 11 128 Blanco','iPhone 11','128','Blanco','11128BLA',1800),(5,'iPhone 11 128 Morado','iPhone 11','128','Morado','11128MOR',1800);
-/*!40000 ALTER TABLE `sku` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
-
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CSLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2023-12-24 10:50:32
-```
+- Creacion de tabla de inventarios mensuales para la creacion de un kardex para controla el inventario.
