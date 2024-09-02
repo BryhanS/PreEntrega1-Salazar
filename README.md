@@ -32,7 +32,7 @@ La empresa Celulares Apple S.A.C. se encarga de la comercialización de equipos 
 
 Creacion de base de datos y tabla de celulares.
 
-```
+```sql
 CREATE SCHEMA IF NOT EXISTS IphoneData;
 
 USE IphoneData;
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT exists Ventas(
 
 Creacion de insert sql
 
-```
+```sql
 
 insert into Direccion(id_direccion,direccion,pais,ciudad)
 VALUES
